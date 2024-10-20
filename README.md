@@ -1,2 +1,2 @@
 # Progetto_retiLogiche_Polimi
-Progetto di ingegneria informatica per il corso di "Reti Logiche" al Politecnico di Milano. Anno Accademico 2020/2021. Voto: 30/30 e Lode.
+Progetto di ingegneria informatica per il corso di "Reti Logiche" al Politecnico di Milano. Anno Accademico 2022/2023. Voto: 30/30 e Lode.
