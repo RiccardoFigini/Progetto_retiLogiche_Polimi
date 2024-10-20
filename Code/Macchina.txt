@@ -1,0 +1,148 @@
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+library UNISIM;
+use UNISIM.VComponents.all;
+
+entity project_reti_logiche is port(
+        i_clk   : in std_logic; 
+        i_rst   : in std_logic; 
+        i_start : in std_logic; 
+        i_w     : in std_logic; 
+        
+        o_z0    : out std_logic_vector(7 downto 0); 
+        o_z1    : out std_logic_vector(7 downto 0); 
+        o_z2    : out std_logic_vector(7 downto 0); 
+        o_z3    : out std_logic_vector(7 downto 0); 
+        o_done  : out std_logic; 
+
+        o_mem_addr : out std_logic_vector(15 downto 0); 
+        i_mem_data : in std_logic_vector(7 downto 0); 
+        o_mem_we   : out std_logic; 
+        o_mem_en   : out std_logic;
+        
+        status : out std_logic_vector(5 downto 0)
+        
+        );
+end project_reti_logiche;
+
+architecture Behavioral of project_reti_logiche is
+    component datapath is port(
+        i_clk : in std_logic;
+        i_rst : in std_logic;
+        i_start : in std_logic;
+        i_w : in std_logic;
+        
+        o_z0 : out std_logic_vector(7 downto 0);
+        o_z1 : out std_logic_vector(7 downto 0);
+        o_z2 : out std_logic_vector(7 downto 0);
+        o_z3 : out std_logic_vector(7 downto 0);
+        o_done : out std_logic;
+                
+        o_mem_addr : out std_logic_vector(15 downto 0);
+        i_mem_data : in std_logic_vector(7 downto 0);
+            
+        --SELETTORI: ingresso per i selettori che decidono quando scrivere sull'uscita finale
+        selzi : in std_logic;
+        selout : in std_logic;
+        
+        --segnali per i due blocchi per la memorizzazione
+        loadz : in std_logic;
+        load : in std_logic;
+        
+        --reset manuale
+        i_rstManual : in std_logic
+    );
+    end component;
+signal selzi :  std_logic;
+signal selout : std_logic;
+signal loadz :  std_logic;
+signal load :  std_logic;
+signal i_rstManual : std_logic;
+type S is (s0, s1, s2, s3, s4, sr);
+signal cur_state : S;
+begin
+    DATAPATH0 : datapath port map(
+        i_clk => i_clk, 
+        i_rst => i_rst,
+        i_start => i_start,
+        i_w => i_w,
+        o_z0 => o_z0,
+        o_z1 => o_z1,
+        o_z2 => o_z2,
+        o_z3 => o_z3, 
+        o_done => o_done,
+        o_mem_addr =>o_mem_addr,
+        i_mem_data =>i_mem_data,
+        loadz=>loadz,
+        load=>load,
+        i_rstManual=>i_rstManual,
+        selzi =>selzi,
+        selout => selout
+    );
+    
+    
+    process(i_clk, i_rst)
+    begin
+        if(i_rst='1')then
+            loadz<='1';
+            cur_state<=sr;
+        elsif rising_edge(i_clk) then
+                selzi <='0';
+                selout <='0';
+                loadz <='0';
+                load <='0';
+                i_rstManual<='0';
+                o_mem_en<='0';
+                o_mem_we<='0';    
+                case cur_state is 
+                    when s0=>
+                        if(i_start='0')then
+                            loadz <='1';
+                            status<="000000";
+                            cur_state<=s0;
+                        else
+                            loadz <='1';
+                            status<="000000";
+                            cur_state<=s1;
+                        end if;
+                    when s1=>
+                        load <='1';
+                        status<="000001";
+                        cur_state<=s2;
+                    when s2=>
+                        if(i_start='0') then
+                            o_mem_en<='1';
+                            status<="000010";
+                            cur_state<=s3;
+                        else
+                            load <='1';
+                            status<="000010";
+                            cur_state<=s2;
+                        end if;
+                    when s3 =>
+                        selzi <='1';
+                        o_mem_en<='1';
+                        status<="000011";
+                        cur_state<=s4;
+                    when s4 => 
+                        selout <='1';
+                        loadz <='1';
+                        i_rstManual<='1';
+                        status<="000100";
+                        cur_state<=s0;
+                     when sr => 
+                       loadz <='1';
+                       if(i_rst='0' and i_start='0')then
+                            cur_state<=s0;
+                       elsif(i_rst='0' and i_start='1')then
+                            cur_state<=s1;
+                       else
+                           cur_state<=sr;
+                       end if;
+                       status<="111111";
+                 end case;   
+    end if;  
+    end process;
+end Behavioral;

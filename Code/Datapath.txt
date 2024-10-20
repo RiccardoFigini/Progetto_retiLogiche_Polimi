@@ -1,0 +1,212 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use ieee.numeric_std.all;
+use ieee.std_logic_unsigned.ALL;
+
+entity datapath is Port(
+    --Segnali dati da specifica
+    i_clk : in std_logic;
+    i_rst : in std_logic;
+    i_start : in std_logic;
+    i_w : in std_logic;
+    
+    o_z0 : out std_logic_vector(7 downto 0);
+    o_z1 : out std_logic_vector(7 downto 0);
+    o_z2 : out std_logic_vector(7 downto 0);
+    o_z3 : out std_logic_vector(7 downto 0);
+    o_done : out std_logic;
+    
+    o_mem_addr : out std_logic_vector(15 downto 0);
+    i_mem_data : in std_logic_vector(7 downto 0);
+    
+    --SELETTORI: ingresso per i selettori che decidono quando scrivere sull'uscita finale
+    selzi : in std_logic;
+    selout : in std_logic;
+    
+    --reset manuale 
+    i_rstManual : in std_logic;
+    
+    --segnale per salvataggio canale di uscita
+    loadz : in std_logic;
+    
+    --segnale per salvataggio canale di uscita
+    load : in std_logic
+    );
+end datapath;
+
+architecture Behavioral of datapath is
+
+--Segnali necessari per creare l'or finale. La scelta di questa implementazione è discussa nella relazione
+signal outSupport0 : std_logic_vector(7 downto 0);
+signal outSupport1 : std_logic_vector(7 downto 0);
+signal outSupport2 : std_logic_vector(7 downto 0);
+signal outSupport3 : std_logic_vector(7 downto 0);
+--SEGNALI SELETTORI FINALI
+--Uscita degli if
+signal o0: std_logic;
+signal o1: std_logic;
+signal o2: std_logic;
+signal o3: std_logic;
+--uscita degli and 
+signal oa0 : std_logic;
+signal oa1 : std_logic;
+signal oa2 : std_logic;
+signal oa3 : std_logic;
+--uscita dei selettori
+signal p_z0 : std_logic_vector(7 downto 0);
+signal p_z1 : std_logic_vector(7 downto 0);
+signal p_z2 : std_logic_vector(7 downto 0);
+signal p_z3 : std_logic_vector(7 downto 0);
+--primo blocco per salvataggio canale di uscira
+signal outmz : std_logic_vector(1 downto 0);
+signal osel1z : std_logic_vector(1 downto 0);
+signal oshift0z : std_logic_vector(1 downto 0);
+signal oshift1z : std_logic_vector(1 downto 0);
+--secondo blocco per salvataggio dell'indirizzo di memoria
+signal outm : std_logic_vector(15 downto 0);
+signal osel1 : std_logic_vector(15 downto 0);
+signal oshift0 : std_logic_vector(15 downto 0);
+signal oshift1 : std_logic_vector(15 downto 0);
+
+signal input : std_logic;
+
+begin
+    input <= loadz and i_start and not i_rst;
+    --primo blocco per salvataggio del canale di uscita
+    process(i_clk, i_rst)
+    begin
+        if(i_rst = '1' or i_rstManual = '1')then
+            outmz <= "00";
+        elsif rising_edge(i_clk)then
+            if(input='1')then
+                outmz <= osel1z;
+            end if;
+        end if;          
+    end process;
+    with i_w select osel1z <= oshift0z when '0', oshift1z when '1', "XX" when others; 
+    oshift0z <=  outmz(0 downto 0) & '0'; 
+    oshift1z <=  outmz(0 downto 0) & '1';
+    
+    --Secondo blocco per salvataggio dell'indirizzo di memoria 
+        process(i_clk, i_rst)
+        begin
+            if(i_rst = '1' or i_rstManual = '1')then
+                outm <= "0000000000000000";
+            elsif rising_edge(i_clk)then
+                if(load = '1' and i_start='1')then
+                    outm <= osel1;
+                end if;
+            end if;          
+        end process;
+        with i_w select osel1 <= oshift0 when '0', oshift1 when '1', "XXXXXXXXXXXXXXXX" when others;
+        oshift0 <=  outm(14 downto 0) & '0';  
+        oshift1 <=  outm(14 downto 0) & '1';
+          
+          
+     --SELETTORI zi: vedere il disegno per capire le varie parti
+     --Tutte le uscite degli if per stabilire qual è l'uscita corretta
+     --primo if
+     process(i_clk)
+     begin 
+        if(outmz="00")then
+            o0<='1';
+        else 
+            o0<='0';
+        end if;            
+     end process;
+     --secondo if
+     process(i_clk)
+     begin 
+         if(outmz="01")then
+             o1<='1';
+         else 
+             o1<='0';
+         end if;            
+      end process;
+      --terzo id
+      process(i_clk)
+      begin 
+         if(outmz="10")then
+             o2<='1';
+         else 
+             o2<='0';
+         end if;            
+      end process;    
+      --quarto if
+      process(i_clk)
+      begin 
+        if(outmz="11")then
+            o3<='1';
+        else 
+            o3<='0';
+        end if;            
+      end process;
+
+      --Uscita dell'and che riesce a mettere a 1 l'unico selettore che ha selzi e oi a 1
+      oa0<= selzi and o0;
+      oa1<= selzi and o1;
+      oa2<= selzi and o2;
+      oa3<= selzi and o3;   
+      --selettori finali 
+      with selout select outSupport0 <= "00000000" when '0', p_z0 when '1', "XXXXXXXX" when others;
+      with selout select outSupport1 <= "00000000" when '0', p_z1 when '1', "XXXXXXXX" when others;
+      with selout select outSupport2 <= "00000000" when '0', p_z2 when '1', "XXXXXXXX" when others;
+      with selout select outSupport3 <= "00000000" when '0', p_z3 when '1', "XXXXXXXX" when others;
+      --registri in cui salvo le uscite da far vedere solo quando è necessario
+      --regz0
+      process(i_clk, i_rst)
+      begin
+        if(i_rst='1')then
+            p_z0<="00000000";
+        elsif rising_edge(i_clk)then
+            if(oa0='1')then
+                p_z0<=i_mem_data;
+            end if;
+        end if;
+      end process;
+      --regz1
+      process(i_clk, i_rst)
+      begin
+        if(i_rst='1')then
+            p_z1<="00000000";
+        elsif rising_edge(i_clk)then
+            if(oa1='1')then
+                p_z1<=i_mem_data;
+            end if;
+        end if;
+      end process;
+      --regz2
+      process(i_clk, i_rst)
+      begin
+        if(i_rst='1')then
+            p_z2<="00000000";
+        elsif rising_edge(i_clk)then
+            if(oa2='1')then
+                p_z2<=i_mem_data;
+            end if;
+        end if;
+      end process;
+      --regz3
+      process(i_clk, i_rst)
+      begin
+        if(i_rst='1')then
+            p_z3<="00000000";
+        elsif rising_edge(i_clk)then
+            if(oa3='1')then
+                p_z3<=i_mem_data;
+            end if;
+        end if;
+      end process;
+      --FINE
+      o_z0<=outSupport0;
+      o_z1<=outSupport1;
+      o_z2<=outSupport2;
+      o_z3<=outSupport3;
+     --indirizzo di memoria: implemento un registro in cui salvare l'indirizzo, altrimenti lo perdo dopo un ciclo
+      o_mem_addr<=outm;
+      o_done<=  selout or outSupport0(0) or outSupport0(1) or  outSupport0(2) or outSupport0(3) or outSupport0(4) or outSupport0(5) or  outSupport0(6) or outSupport0(7)
+                   or outSupport1(0) or outSupport1(1) or  outSupport1(2) or outSupport1(3) or outSupport1(4) or outSupport1(5) or  outSupport1(6) or outSupport1(7)
+                   or outSupport2(0) or outSupport2(1) or  outSupport2(2) or outSupport2(3) or outSupport2(4) or outSupport2(5) or  outSupport2(6) or outSupport2(7)
+                                      or outSupport3(0) or outSupport3(1) or  outSupport3(2) or outSupport3(3) or outSupport3(4) or outSupport3(5) or  outSupport3(6) or outSupport3(7);
+
+end Behavioral;
