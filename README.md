@@ -8,4 +8,4 @@ Progetto di ingegneria informatica per il corso di "Reti Logiche" al Politecnico
 - Relazione del progetto: soluzione della consegna del progetto
 
 ### Nota 
-Sfortunamente ho recupero il seguente progetto molto tempo dopo la consegna. Per questo motivo non riesco a fornire una guida dettagliata per la configurazione
+Sfortunamente ho recupero il seguente progetto molto tempo dopo la consegna. Per questo motivo non riesco a fornire una guida dettagliata per la configurazione. In ogni caso era svolto sulla piattaforma "VHDL" e lo scopo era quello di definire un circuito logico in grado di risolvere il problema dato
